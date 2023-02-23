@@ -219,6 +219,10 @@ public class GameState
         }
 
         // Moves to foundation
+        
+        //here we are implimenting the rule of two to prevent us from locking us out of the game by moving a card to a foundation too early
+        
+        
         for (int s = 0; s<cells.size(); s++) {
             Card c2 = cells.get(s);
             if (c2.getRank() == foundations[c2.getSuit()] + 1) {
@@ -385,7 +389,8 @@ public class GameState
         Card c3;
         Card c4;
         
-        ArrayList<Card> blockers = new ArrayList<Card>();
+        ArrayList<Card> blockEdge = new ArrayList<Card>();
+        ArrayList<Card> dependEdge = new ArrayList<Card>();
         int numCovering = 0;
         int dependencyCount = 0;
         
@@ -402,7 +407,7 @@ public class GameState
 
                     if(c1.getRank() > c2.getRank() && c1.getSuit() == c2.getSuit()){
                         numCovering++;
-                        blockers.add(c1);
+                        blockEdge.add(c1);
                     }
                     
                     
@@ -428,7 +433,7 @@ public class GameState
                             c2 = pile2.get(j);
 
                             
-                            if(c1.getSuit() == c2.getSuit() && c1.getRank() > c2.getRank() && !blockers.contains(c1)){
+                            if(c1.getSuit() == c2.getSuit() && c1.getRank() > c2.getRank()/* && !blockers.contains(c1)*/){
                                 
                                 for(int k = j; k < pile2.size(); k++){
                                     int a = Math.min(i - 1, k - 1);
@@ -436,9 +441,10 @@ public class GameState
                                     for(int l = a; l >= 0;l--){
                                         c3 = pile2.get(k);
                                         c4 = pile.get(l);
-                                        if(c3.getSuit() == c4.getSuit() && c3.getRank() > c4.getRank() && !blockers.contains(c3)){
+                                        if(c3.getSuit() == c4.getSuit() && c3.getRank() > c4.getRank() /*&& !blockers.contains(c3)*/){
                                             dependencyCount++;
-                                            blockers.add(c1);
+                                            dependEdge.add(c1);
+                                        
                                             //blockers.add(c3);
                                            break;
                                         }
@@ -454,8 +460,13 @@ public class GameState
                 }
                 }
         }
+        
+        for(Card c: blockEdge){
+            if(dependEdge.contains(c)) dependEdge.remove(c);
+        }
        
-        return numNotInFoundation + blockers.size();
+        //return numNotInFoundation + blockers.size();
+        return numNotInFoundation + dependEdge.size() + blockEdge.size();
     }
     
    @Override
