@@ -106,7 +106,7 @@ public class GameState
     }
 
     // Note: Modifies internal state; no "undo" available
-    private boolean executeAction(Action a) {
+    public boolean executeAction(Action a) {
         if (!isLegalAction(a)) { return false; }
         Card c;
         if (a.fromCell()) {
@@ -220,9 +220,7 @@ public class GameState
 
         // Moves to foundation
         
-        //here we are implimenting the rule of two to prevent us from locking us out of the game by moving a card to a foundation too early
-        
-        
+
         for (int s = 0; s<cells.size(); s++) {
             Card c2 = cells.get(s);
             if (c2.getRank() == foundations[c2.getSuit()] + 1) {
@@ -247,7 +245,7 @@ public class GameState
         if (!result.executeAction(a)) { 
             return null; 
         } else {
-            //if we check the next state then we must add it to the 
+  
 
             if(this.actions != null){
                 result.actions.addAll(this.actions);}
@@ -363,11 +361,15 @@ public class GameState
      * This heuristic will be designed not to be consistent, as using too many freecells can result in
      * states thatu
      * 
-     * There are 2 main factors involved in this heuristic 
+     * There are 3 main factors involved in this heuristic 
      * 
      * 
      * 1. Foundation - Checks the size of the foundation piles, and subtracts it from 52. This gives a bare minimum number of moves
-     * 2. Covering- check for each pile
+     * 2. Blocking Edges - Counts the number of cards in each individual pile that prevents a lower card of the same suit from being moved first
+     * 3. Dependency Edges - Counts the number of cards that prevent another card from a lesser pile from being removed
+     * 
+     * Because we don't want to count redundant edges, especially if a card is causing both a blocking edge and a dependency edge,
+     * so if a card is a blocking edge and a dependency edge, then it is removed from the counting edge list.
      *    
      *    
      *  @return float heuristic for our A* method in determining which state should be next in the priorityqueue
@@ -378,45 +380,39 @@ public class GameState
 
         int numFoundation = 0;
 
-        for(int i = 0; i < this.foundations.length; i++){
+        for(int i = 1; i < this.foundations.length; i++){
             numFoundation += this.foundations[i];
         }
 
-        int numNotInFoundation = 52 - numFoundation;
+
 
         Card c1;
         Card c2;
         Card c3;
         Card c4;
-        
+
         ArrayList<Card> blockEdge = new ArrayList<Card>();
         ArrayList<Card> dependEdge = new ArrayList<Card>();
-        int numCovering = 0;
-        int dependencyCount = 0;
-        
+
 
         for(ArrayList<Card> pile: tableau){
-
             //reminder that because we are using arraylists, the top card is going to be in the highest index of the arraylist
-
             for(int i = pile.size() - 1; i > 0; i--){
                 c1 = pile.get(i);
                 for(int j = i - 1; j >= 0; j--){
 
                     c2 = pile.get(j);
 
-                    if(c1.getRank() > c2.getRank() && c1.getSuit() == c2.getSuit()){
-                        numCovering++;
+                    if(c1.getSuit() == c2.getSuit() && c1.getRank() > c2.getRank()){
+ 
                         blockEdge.add(c1);
                     }
-                    
-                    
+
 
                 }
 
             } 
-            
-            
+
 
         }
         ArrayList<Card> pile;
@@ -424,85 +420,81 @@ public class GameState
         for(int p1 = 0; p1 < 8; p1++){
             pile = tableau.get(p1);
             for(int p2 = 0; p2 < 8; p2++){
-               
+
                 pile2 = tableau.get(p2);
                 if(!pile.equals(pile2)){
                     for(int i = pile.size() - 1; i >= 0; i--){
-                         for(int j = pile2.size() - 1; j >= 0; j--){
+                        for(int j = pile2.size() - 1; j >= 0; j--){
                             c1 = pile.get(i);
                             c2 = pile2.get(j);
 
-                            
                             if(c1.getSuit() == c2.getSuit() && c1.getRank() > c2.getRank()/* && !blockers.contains(c1)*/){
-                                
                                 for(int k = j; k < pile2.size(); k++){
                                     int a = Math.min(i - 1, k - 1);
-                                    //int a = i - 1;
+                       
                                     for(int l = a; l >= 0;l--){
                                         c3 = pile2.get(k);
                                         c4 = pile.get(l);
                                         if(c3.getSuit() == c4.getSuit() && c3.getRank() > c4.getRank() /*&& !blockers.contains(c3)*/){
-                                            dependencyCount++;
+
                                             dependEdge.add(c1);
-                                        
-                                            //blockers.add(c3);
-                                           break;
+
+                              
+                                            break;
                                         }
-                                        
+
                                     }
                                 }
-                                
 
                             }
-                           
                         }
                     }
                 }
-                }
+            }
         }
-        
+
         for(Card c: blockEdge){
             if(dependEdge.contains(c)) dependEdge.remove(c);
         }
-       
-        //return numNotInFoundation + blockers.size();
-        return numNotInFoundation + dependEdge.size() + blockEdge.size();
+
+
+        return (52 - numFoundation) + dependEdge.size() + blockEdge.size();
     }
-    
-   @Override
+
+    @Override
     public boolean equals(Object o){
         GameState gs = (GameState) o;
         boolean found = false;
         //does matter what freecell position a card is in, permutations are equivalent
-        if(this.numCellsFree == gs.numCellsFree){
-        for(int i = 0; i < this.cells.size(); i++){
-            found = false;
-            for(int j = 0; j < gs.cells.size(); j++){
-                if(this.cells.get(i).equals(gs.cells.get(i)))found = true;
+        if(this.numCellsFree != gs.numCellsFree){
+            return false;
+
+        } else {
+            for(int i = 0; i < this.cells.size(); i++){
+                found = false;
+                for(int j = 0; j < gs.cells.size(); j++){
+                    if(this.cells.get(i).equals(gs.cells.get(i)))found = true;
+                }
+                //if(!this.cells.get(i).equals(gs.cells.get(i))) return false;
+                if(!found) return false;
             }
-            //if(!this.cells.get(i).equals(gs.cells.get(i))) return false;
-            if(!found) return false;
         }
-    } else {
-        return false;
-    }
         ArrayList<Card> arr1;
         ArrayList<Card> arr2;
         for(int i = 0; i < 8; i++){
-            
+
             arr1 = this.tableau.get(i);
             arr2 = gs.tableau.get(i);
             if(arr1.size() != arr2.size()){
                 return false;
-        } else {
-            for(int j = 0; j < arr1.size(); j++){
-                if(!arr1.get(j).equals(arr2.get(j))) return false;
+            } else {
+                for(int j = 0; j < arr1.size(); j++){
+                    if(!arr1.get(j).equals(arr2.get(j))) return false;
+                }
             }
+
         }
-       
-        
+        return true;
     }
-    return true;
-}
-  
+
 }

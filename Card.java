@@ -42,7 +42,7 @@ public class Card
 
     public int getRank() { return rank; }
     public int getSuit() { return suit; }
-    public int getColor() { return (suit % 2); }
+    public int getColor() { return (suit & 1); }
     
     public boolean sameColor(Card c2) {
         return (this.getColor() == c2.getColor());
